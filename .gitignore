@@ -1,0 +1,22 @@
+# Local environments and credentials
+/.venv/
+/node_modules/
+/.env
+/.env.*
+!.env.example
+/.aws/
+/.codex/
+/.agents/
+
+# Python and pytest caches
+__pycache__/
+*.py[cod]
+/.pytest_cache/
+
+# Allure output, including named runs
+/*-results/
+/*-report/
+
+# Local course materials
+/automation-spec.pdf
+/17-11-2026_23-52-15/
