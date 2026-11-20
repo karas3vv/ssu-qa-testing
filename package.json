@@ -1,0 +1,1 @@
+{"name":"dom-ui-report","private":true,"scripts":{"report":"allure generate allure-results --clean --single-file -o allure-report"},"devDependencies":{"allure-commandline":"2.34.1"}}
