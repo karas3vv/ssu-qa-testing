@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+from contextlib import contextmanager
 from urllib.parse import parse_qs, urlsplit
 
 import allure
@@ -31,6 +32,16 @@ class PageObject:
 
     def element(self, selector, name):
         return BaseElement(self.page.locator(selector), name)
+
+    @contextmanager
+    def handle_cookie_banner(self):
+        page = self.page
+        accept = page.locator(".cookie_block_1_v3").get_by_text("Принять все", exact=True)
+        page.add_locator_handler(accept, lambda button: button.click())
+        try:
+            yield
+        finally:
+            page.remove_locator_handler(accept)
 
     def open(self, path):
         self.page.goto(path, wait_until="domcontentloaded")
@@ -67,14 +78,8 @@ class Auth(PageObject):
 
     def check_store_contact(self, kind, login):
         self.open("/cabinet/")
-        accept_cookies = self.page.locator(".cookie_block_1_v3").get_by_text(
-            "Принять все", exact=True
-        )
-        self.page.add_locator_handler(accept_cookies, lambda button: button.click())
-        try:
+        with self.handle_cookie_banner():
             self.page.locator('a.cabinet__section[href="/cabinet/personal/"]').click()
-        finally:
-            self.page.remove_locator_handler(accept_cookies)
         if kind == "phone":
             field = self.page.locator('input[name="phone"][type="tel"]:visible')
             digits = re.sub(r"\D", "", login)[-10:]
@@ -147,20 +152,18 @@ class Shop(PageObject):
         self.open_result(sku, name)
 
     def open_result(self, sku, name):
-        cookies = self.page.get_by_text("Принять все", exact=True)
-        if cookies.is_visible():
-            cookies.click()
         link = self.page.locator(f'a[href$="_{sku}/"]:visible').filter(has_text=name)
-        self.open_product_link(link, "Результат поиска")
+        self.open_product_link(link, "Ссылка на товар")
 
     def open_product_link(self, locator, name):
         link = BaseElement(locator, name)
-        if locator.get_attribute("target") == "_blank":
-            with self.page.expect_popup() as popup:
+        with self.handle_cookie_banner():
+            if locator.get_attribute("target") == "_blank":
+                with self.page.expect_popup() as popup:
+                    link.act("click")
+                self.page = popup.value
+            else:
                 link.act("click")
-            self.page = popup.value
-        else:
-            link.act("click")
 
     def check_product(self, sku, name):
         expect(self.page.locator("h1")).to_have_text(name)
@@ -171,11 +174,9 @@ class Shop(PageObject):
 
     def product(self, sku, name):
         price = self.check_product(sku, name)
-        cookies = self.page.get_by_text("Принять все", exact=True)
-        if cookies.is_visible():
-            cookies.click()
-        self.element(f'button.btn.addToCart[data-local-code="{sku}"]', "В корзину").act("click")
-        self.page.get_by_text("Перейти корзину", exact=True).click()
+        with self.handle_cookie_banner():
+            self.element(f'button.btn.addToCart[data-local-code="{sku}"]', "В корзину").act("click")
+            self.page.get_by_text("Перейти корзину", exact=True).click()
         return price
 
     def line(self, name, price):
